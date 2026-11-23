@@ -41,6 +41,7 @@ ________________________________________________________________________________
 
 El pipeline sigue la **Arquitectura de Medalla** (Bronce, Plata, Oro), implementando actualmente la ingesta fundamental de la capa Bronce.
 
+```mermaid
 %%{init: {'theme': 'default', 'themeVariables': { 'fontFamily': 'Segoe UI, Arial, sans-serif', 'lineColor': '#555555'}}}%%
 flowchart TD
     %% ESTILOS DE NODOS (Paleta profesional)
@@ -81,7 +82,7 @@ flowchart TD
 
     %% Estilos de línea
     linkStyle default stroke:#555555,stroke-width:2px;
-    linkStyle 6 stroke:#9013FE,stroke-width:2px,stroke-dasharray: 5 5;
+    linkStyle 6 stroke:#9013FE,stroke-width:2px,stroke-dasharray: 5 5; ```
 
 
 
