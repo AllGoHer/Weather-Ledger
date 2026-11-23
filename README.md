@@ -101,7 +101,7 @@ Un proceso confiable debería poder:
 | Inspección histórica | Consultar una instantánea anterior de Iceberg para ver el estado de la tabla antes de un cambio |
 | Análisis confiables | Recalcular los resúmenes diarios a partir del estado actual en Silver |
 
-📌 El objetivo no es simplemente mover un archivo CSV a través de tres carpetas. Es demostrar cómo un formato de tabla como Apache Iceberg puede respaldar un flujo de trabajo de <mark>lakehouse</mark> en el que los datos cambian con el tiempo.
+📌 El objetivo no es simplemente mover un archivo CSV a través de tres carpetas. Es demostrar cómo un formato de tabla como Apache Iceberg puede respaldar un flujo de trabajo de <mark>**lakehouse**</mark> en el que los datos cambian con el tiempo.
 
 ___________________________________________________________________________________________________________________________________________________________________________________________________________________
 
@@ -109,14 +109,17 @@ ________________________________________________________________________________
 
 Este proyecto se centra en un conjunto práctico de capacidades de Iceberg y muestra cómo se integran en un flujo de datos.
 
-Característica    Cómo se utiliza en este proyecto
-Tablas y catálogo de Iceberg    Almacenar Bronze, Silver y Gold como tablas de Iceberg a través del catálogo de Iceberg de Spark
-Añadir confirmaciones    Agregar eventos entrantes a la tabla Bronze sin perder las entregas repetidas
-MERGE INTO / upserts    Actualiza las observaciones corregidas e inserta las observaciones recién llegadas en Silver
-Historial de instantáneas    Revisa las instantáneas de tablas confirmadas a través de las tablas de metadatos de Iceberg
-Tablas de metadatos    Consulta .snapshots para revisar los ID de las instantáneas, las operaciones y el historial de confirmaciones
-Viaje en el tiempo    Consulta una instantánea guardada de Silver para recuperar el valor anterior a la corrección
-Actualización de Gold    Vuelve a calcular los análisis diarios a partir de la tabla Silver actualizada y confirma el estado actualizado de Gold
+| Característica | Cómo se utiliza en este proyecto |
+|----------------|----------------------------------|
+| Tablas y catálogo de Iceberg | Almacenar Bronze, Silver y Gold como tablas de Iceberg a través del catálogo de Iceberg de Spark |
+| Añadir confirmaciones | Agregar eventos entrantes a la tabla Bronze sin perder las entregas repetidas |
+| MERGE INTO / upserts | Actualiza las observaciones corregidas e inserta las observaciones recién llegadas en Silver |
+| Historial de instantáneas | Revisa las instantáneas de tablas confirmadas a través de las tablas de metadatos de Iceberg |
+| Tablas de metadatos | Consulta .snapshots para revisar los ID de las instantáneas, las operaciones y el historial de confirmaciones |
+| Viaje en el tiempo | Consulta una instantánea guardada de Silver para recuperar el valor anterior a la corrección |
+| Actualización de Gold | Vuelve a calcular los análisis diarios a partir de la tabla Silver actualizada y confirma el estado actualizado de Gold |
+
+
 
 
     
