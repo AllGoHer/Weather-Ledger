@@ -85,10 +85,25 @@ flowchart TD
     linkStyle 6 stroke:#9013FE,stroke-width:2px,stroke-dasharray: 5 5;
 ```
 
-
-
-
 ___________________________________________________________________________________________________________________________________________________________________________________________________________________
+
+## 💡El problema que resuelve
+
+Imagina que una estación meteorológica envía una observación y, más tarde, llega una versión corregida. Otra observación se envía dos veces. Mientras tanto, una lectura de un día anterior llega con retraso.
+
+Un proceso confiable debería poder:
+
+| Desafío | Lo que el proceso debe hacer |
+|---------|------------------------------|
+| Envíos duplicados | Conservar los eventos recibidos en **Bronze** y mantener una sola fila actual en **Silver** |
+| Observaciones corregidas | Actualizar la observación actual cuando llegue una revisión más reciente |
+| Datos que llegan tarde | Agregar la observación a la estación y fecha históricas correctas y actualizar las métricas diarias |
+| Inspección histórica | Consultar una instantánea anterior de Iceberg para ver el estado de la tabla antes de un cambio |
+| Análisis confiables | Recalcular los resúmenes diarios a partir del estado actual en Silver |
+
+📌 El objetivo no es simplemente mover un archivo CSV a través de tres carpetas. Es demostrar cómo un formato de tabla como Apache Iceberg puede respaldar un flujo de trabajo de <mark>lakehouse</mark> en el que los datos cambian con el tiempo.
+
+
 
 
     
