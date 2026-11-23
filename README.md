@@ -28,3 +28,20 @@ El canal de datos fluye de **Bronce** → **Plata** → **Oro**:
 
 📋 <mark>**Nota sobre el conjunto de datos**</mark>: todas las mediciones meteorológicas son datos sintéticos generados localmente para este proyecto. No son lecturas en vivo de estaciones meteorológicas reales.
 
+____________________________________________________________________________________________________________________________________________________________________________________________________________________
+
+## 🏗️ Arquitectura
+
+El pipeline sigue la **Arquitectura de Medalla** (Bronce, Plata, Oro), implementando actualmente la ingesta fundamental de la capa Bronce.
+
+```mermaid
+graph LR
+    A[API Externa del Clima] -->|REST API / JSON| B(Extractor en Python)
+    B -->|Datos Crudos| C{Clúster de Apache Spark}
+    C -->|Procesamiento Distribuido| D[(Capa Bronce)]
+    D -.->|Formato Apache Iceberg| E[(Hadoop / Almacén Local)]
+    E -.->|Futuro| F[Capas Plata / Oro]
+    E -.->|Futuro| G[Herramientas de BI / Analítica]
+    
+    style D fill:#f9f,stroke:#333,stroke-width:2px
+    style E fill:#bbf,stroke:#333,stroke-width:2px ```
