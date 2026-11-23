@@ -82,7 +82,8 @@ flowchart TD
 
     %% Estilos de línea
     linkStyle default stroke:#555555,stroke-width:2px;
-    linkStyle 6 stroke:#9013FE,stroke-width:2px,stroke-dasharray: 5 5; ```
+    linkStyle 6 stroke:#9013FE,stroke-width:2px,stroke-dasharray: 5 5;
+```
 
 
 
