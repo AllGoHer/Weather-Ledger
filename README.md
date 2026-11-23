@@ -41,57 +41,47 @@ ________________________________________________________________________________
 
 El pipeline sigue la **Arquitectura de Medalla** (Bronce, Plata, Oro), implementando actualmente la ingesta fundamental de la capa Bronce.
 
-%%{init: {'theme': 'dark', 'themeVariables': { 'fontFamily': 'monospace', 'lineColor': '#00ffff'}}}%%
+%%{init: {'theme': 'default', 'themeVariables': { 'fontFamily': 'Segoe UI, Arial, sans-serif', 'lineColor': '#555555'}}}%%
 flowchart TD
-    %% Estilos Neón (Cyberpunk)
-    classDef neonBlue fill:#000000,stroke:#00ffff,stroke-width:2px,color:#00ffff,box-shadow: 0 0 10px #00ffff;
-    classDef neonOrange fill:#000000,stroke:#ff9900,stroke-width:2px,color:#ff9900,box-shadow: 0 0 10px #ff9900;
-    classDef neonGreen fill:#000000,stroke:#00ff00,stroke-width:2px,color:#00ff00,box-shadow: 0 0 10px #00ff00;
-    classDef neonYellow fill:#000000,stroke:#ffff00,stroke-width:2px,color:#ffff00,box-shadow: 0 0 10px #ffff00;
-    classDef neonPurple fill:#000000,stroke:#ff00ff,stroke-width:2px,color:#ff00ff,box-shadow: 0 0 10px #ff00ff;
-    classDef neonRed fill:#000000,stroke:#ff0000,stroke-width:2px,color:#ff0000,box-shadow: 0 0 10px #ff0000;
+    %% ESTILOS DE NODOS (Paleta profesional)
+    classDef dataSource fill:#F0F4F8,stroke:#4A90E2,stroke-width:2px,color:#333333,rx:5px,ry:5px;
+    classDef bronze fill:#FFF3E0,stroke:#F5A623,stroke-width:3px,color:#333333,rx:5px,ry:5px;
+    classDef silver fill:#E8F5E9,stroke:#50E3C2,stroke-width:3px,color:#333333,rx:5px,ry:5px;
+    classDef gold fill:#FFFDE7,stroke:#F8E71C,stroke-width:3px,color:#333333,rx:5px,ry:5px;
+    classDef presentation fill:#F5F5F5,stroke:#9B9B9B,stroke-width:2px,color:#333333,rx:5px,ry:5px;
+    classDef timeTravel fill:#F3E5F5,stroke:#9013FE,stroke-width:2px,stroke-dasharray: 5 5,color:#333333,rx:5px,ry:5px;
+
+    %% NODOS
+    A(["<b>Synthetic Weather Data</b><br/><font size='2'>Generator</font>"]):::dataSource
     
-    %% Estilos de línea de flujo
-    linkStyle default stroke:#00ffff,stroke-width:2px,fill:none,filter: drop-shadow(0 0 5px #00ffff);
+    B[("<b>Landing CSV Files</b><br/><font size='2'>Baseline + Change Batch</font>")]:::dataSource
 
-    %% --- ENTORNO / INGESTA ---
-    subgraph Ingestion ["⚡ INGESTA"]
-        A(["🤖 Synthetic Weather Data\nGenerator"]):::neonBlue
-        B[("📁 Landing CSV Files\nBaseline + Change Batch")]:::neonBlue
-    end
+    C[("<b>🥉 BRONZE ICEBERG TABLE</b><br/><br/><font size='2'><i>Append-only event history</i></font>")]:::bronze
 
-    %% --- ENTORNO / CAPAS MEDALLION ---
-    subgraph Medallion ["🧱 ARQUITECTURA MEDALLION (Apache Iceberg)"]
-        C[("🥉 Bronze Iceberg Table\nAppend-only event history")]:::neonOrange
-        D[("🥈 Silver Iceberg Table\nDeduplicate + MERGE INTO")]:::neonGreen
-        E[("🥇 Gold Iceberg Table\nDaily station metrics")]:::neonYellow
-    end
+    D[("<b>🥈 SILVER ICEBERG TABLE</b><br/><br/><font size='2'><i>Deduplicate + MERGE INTO</i></font>")]:::silver
 
-    %% --- ENTORNO / PRESENTACIÓN ---
-    subgraph Presentation ["📊 PRESENTACIÓN"]
-        F[("📄 Daily Summary CSV")]:::neonYellow
-        G{{"📈 Power BI\nDashboard"}}:::neonRed
-    end
+    E[("<b>🥇 GOLD ICEBERG TABLE</b><br/><br/><font size='2'><i>Daily station metrics</i></font>")]:::gold
 
-    %% --- ENTORNO / AUDITORÍA ---
-    subgraph Audit ["⏱️ AUDITORÍA & VERSIONADO"]
-        H[("🕰️ Earlier Silver\nTable State")]:::neonPurple
-    end
+    F[("<b>Daily Summary CSV</b>")]:::presentation
 
-    %% --- CONEXIONES PRINCIPALES ---
+    G{{"<b>Power BI Dashboard</b>"}}:::presentation
+
+    H[("<b>Earlier Silver State</b><br/><font size='2'>Snapshots + Time Travel</font>")]:::timeTravel
+
+    %% CONEXIONES
     A --> B
-    B -->|"Ingesta Batch"| C
-    C -->|"Transformación"| D
-    D -->|"Agregación"| E
-    E -->|"Export"| F
-    F -->|"Carga de Datos"| G
+    B --> C
+    C --> D
+    D --> E
+    E --> F
+    F --> G
 
-    %% --- CONEXIÓN DE TIME TRAVEL (Punteada) ---
-    D -.->|"Snapshots + time travel"| H
-    
-    %% Estilos de conexión específicos (opcional)
-    linkStyle 4 stroke:#ffff00,stroke-width:2px,stroke-dasharray: 5 5,filter: drop-shadow(0 0 5px #ffff00);
+    %% Ramificación del Time Travel (Línea punteada lateral)
+    D -.-> H
 
+    %% Estilos de línea
+    linkStyle default stroke:#555555,stroke-width:2px;
+    linkStyle 6 stroke:#9013FE,stroke-width:2px,stroke-dasharray: 5 5;
 
 
 
