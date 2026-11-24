@@ -170,7 +170,7 @@ Clona el repositorio y navega a la carpeta raíz:
 
 bash:
 
-    git clone https://github.com/AllGoHer/weather_ledger.git
+    git clone https://github.com/AllGoHer/Weather-Ledger
     cd weather_ledger
 
 
