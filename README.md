@@ -119,8 +119,206 @@ Este proyecto se centra en un conjunto práctico de capacidades de Iceberg y mue
 | Viaje en el tiempo | Consulta una instantánea guardada de Silver para recuperar el valor anterior a la corrección |
 | Actualización de Gold | Vuelve a calcular los análisis diarios a partir de la tabla Silver actualizada y confirma el estado actualizado de Gold |
 
+___________________________________________________________________________________________________________________________________________________________________________________________________________________
+## 🧰 Pila tecnológica
+
+| Tecnología | Función |
+|------------|---------|
+| Apache Iceberg 1.9.2 | Formato de tabla, confirmaciones, historial de instantáneas, consultas de metadatos y **viaje en el tiempo** | 
+| Apache Spark 3.5.1 | Motor de ejecución distribuida |
+| PySpark | Ingesta de datos, validación, deduplicación, fusiones y agregación |
+| Biblioteca estándar de Python | Generar entrada CSV sintética determinista |
+| Spark SQL | Inspeccionar las tablas y verificar el comportamiento del flujo de trabajo |
+| Docker / Docker Compose | Ejecutar el entorno local de Spark |
+| Power BI Desktop | Visualizar el resumen Gold exportado |
+
+___________________________________________________________________________________________________________________________________________________________________________________________________________________
+
+## 🗃️ Tablas Iceberg
+
+| Capa | Tabla | Responsabilidad |
+|------|-------|-----------------|
+| 🟤 Bronce | <mark>local.weather_demo.bronze_events</mark> | Historial de eventos meteorológicos recibidos, solo de adición |
+| ⚪ Plata | <mark>local.weather_demo.silver_observations</mark> | Una observación actual por clave (**station_id, observed_at**) |
+| 🟡 Oro | <mark>local.weather_demo.gold_daily_summary</mark> | Un registro analítico por estación y fecha del calendario |
 
 
+* **Ubicación del almacén dentro del entorno de Spark:** /opt/iceberg/warehouse/weatherledger_project
 
+___________________________________________________________________________________________________________________________________________________________________________________________________________________
+## 📂 Estructura del Proyecto
+
+weather_ledger/
+├── apps/
+|   └── weatherledger_project/
+│       ├── generate_demo_data.py          # Creates the baseline and change CSV files
+|       ├── bronze_ingest.py               # Appends incoming events to Bronze
+|       ├── silver_upsert.py               # Validates, deduplicates, and MERGEs into Silver
+|       ├── gold_analytics.py              # Builds daily analytics and exports the CSV
+|       └── sql/
+|           └── inspection_queries.sql     # Validation, history, time travel, and Gold queries
+├── data/                                  # Volcados de datos crudos locales (si aplica)
+├── iceberg-warehouse/                     # Volumen montado para el almacenamiento de tablas Iceberg
+├── jars/                                  # Dependencias de Spark (ej. runtime de Iceberg)
+├── docker-compose.yml                     # Configuración del clúster Spark (Master/Worker)
+└── README.md                              # ¡Estás aquí!
     
-  
+___________________________________________________________________________________________________________________________________________________________________________________________________________________
+## 🚀 Cómo Ejecutarlo Localmente
+
+<mark>**Importante:**</mark> este repositorio está diseñado para la configuración local de Docker/Spark incluida. Inicia los contenedores y verifica las rutas montadas y el archivo JAR del tiempo de ejecución de Iceberg utilizando la infraestructura y los archivos de referencia de comandos proporcionados antes de enviar las solicitudes.
+
+1. **Requisitos Previos**
+
+- Docker Desktop con Docker Compose.
+
+- Los archivos de infraestructura del proyecto y los contenedores de Spark necesarios en ejecución
+
+- Apache Spark 3.5.1
+
+- El tiempo de ejecución de Apache Iceberg 1.9.2 disponible dentro de los contenedores de Spark
+
+- Los directorios montados de la aplicación y de datos utilizados por los comandos incluidos
+
+La ruta configurada del archivo JAR del tiempo de ejecución de Iceberg en el contenedor es:
+
+            /opt/iceberg-jars/iceberg-spark-runtime-3.5_2.12-1.9.2.jar
+
+Los comandos de Spark configuran las extensiones de Iceberg para Spark SQL, un catálogo de Spark respaldado por Hadoop llamado «local», el almacén del proyecto y la zona horaria de la sesión en UTC. Mantenga estos ajustes consistentes en las tres aplicaciones.
+
+**2. Configuración**
+
+Clona el repositorio y navega a la carpeta raíz:
+
+bash:
+
+    git clone https://github.com/AllGoHer/weather_ledger.git
+    cd weather_ledger
+
+
+**3. Iniciar el Clúster de Spark**
+
+Construye e inicia los contenedores Docker (Spark Master y Worker):
+
+bash:
+
+        docker compose up -d --build
+
+
+Verifica que el clúster esté funcionando visitando:
+
+- Interfaz de Spark Master: http://localhost:8080
+
+- Interfaz de Spark Worker: http://localhost:8081
+
+
+**4. Orden de ejecución recomendado**
+
+1. Inicia la infraestructura utilizando la configuración de Docker/Spark proporcionada.
+
+2. Genera los archivos de entrada sintéticos con generate_demo_data.py.
+
+3. Carga el lote de referencia ejecutando bronze_ingest.py.
+
+4. Crea el estado actual inicial ejecutando silver_upsert.py.
+
+5. Crea el resumen diario inicial ejecutando gold_analytics.py.
+
+6. Usa inspection_queries.sql para revisar la singularidad de Bronce y Plata, así como el resumen actual. Guarda el ID de la instantánea actual de Plata antes de procesar los cambios.
+
+7. Incorpora el lote de cambios ejecutando bronze_ingest.py nuevamente.
+
+8. Aplica la corrección y el evento atrasado ejecutando silver_upsert.py nuevamente; revisa la resolución de entregas duplicadas.
+
+9. Consulte la instantánea de Silver guardada antes del cambio utilizando el viaje en el tiempo de Iceberg.
+
+10. Actualice la tabla Gold ejecutando gold_analytics.py nuevamente y compare las métricas diarias afectadas.
+
+Utilice la referencia de comandos proporcionada para conocer las invocaciones exactas de spark-submit en PowerShell y las rutas de los archivos montados. Ejecutar bronze_ingest.py, silver_upsert.py y gold_analytics.py fuera de orden no reproducirá los puntos de control previstos.
+
+
+**5. Cargar el archivo Jar**
+
+Powershell:
+
+            Invoke-WebRequest `
+              -Uri "https://repo1.maven.org/maven2/org/apache/iceberg/iceberg-spark-runtime-3.5_2.12/1.9.2/iceberg-spark-runtime-3.5_2.12-1.9.2.jar" `
+              -OutFile ".\jars\iceberg-spark-runtime-3.5_2.12-1.9.2.jar"
+
+
+**6. Ejecutar la aplicación**
+
+Powershell:
+
+            cd apps
+            
+            docker exec iceberg-spark-master /opt/spark/bin/spark-submit `
+              --master spark://spark-master:7077 `
+              --jars /opt/iceberg-jars/iceberg-spark-runtime-3.5_2.12-1.9.2.jar `
+              --conf spark.sql.extensions=org.apache.iceberg.spark.extensions.IcebergSparkSessionExtensions `
+              --conf spark.sql.catalog.local=org.apache.iceberg.spark.SparkCatalog `
+              --conf spark.sql.catalog.local.type=hadoop `
+              --conf spark.sql.catalog.local.warehouse=/opt/iceberg/warehouse/weatherledger_project `
+              --conf spark.sql.defaultCatalog=local `
+              --conf spark.sql.session.timeZone=UTC `
+              /opt/spark-apps/weatherledger_project/<<app_name>>.py
+
+
+**7. Abrir el trabajador de Spark**
+
+en otra terminal y en la raíz del proyecto.
+
+Powershell:
+
+            docker exec -it iceberg-spark-worker bash
+
+
+**8. Abrir sesión Spark**
+
+Para hacer consultas y verificaciones.
+
+Powershell:
+
+/opt/spark/bin/pyspark \
+  --master spark://spark-master:7077 \
+  --jars /opt/iceberg-jars/iceberg-spark-runtime-3.5_2.12-1.9.2.jar \
+  --conf spark.sql.extensions=org.apache.iceberg.spark.extensions.IcebergSparkSessionExtensions \
+  --conf spark.sql.catalog.local=org.apache.iceberg.spark.SparkCatalog \
+  --conf spark.sql.catalog.local.type=hadoop \
+  --conf spark.sql.catalog.local.warehouse=/opt/iceberg/warehouse/weatherledger_project
+
+___________________________________________________________________________________________________________________________________________________________________________________________________________________
+
+## ✅ Resultados de la validación
+
+Se verificaron los siguientes resultados en la ejecución local completada utilizando datos sintéticos para 2024.
+
+**Recuento de filas**
+
+| Punto de control | Filas esperadas / observadas |
+|------------------|------------------------------|
+| Eventos de referencia (Bronce) | 70 272 |
+| Observaciones actuales (Plata) después de la referencia | 70 272 |
+| Resumen diario (Oro) después de la referencia | 2 928 |
+| Bronce después del lote de cambios de cuatro eventos | 70 276 |
+| Plata después de aplicar el lote de cambios | 70 273 |
+| Oro después de la actualización | 2 928 |
+
+¿Por qué Plata termina con 70 273 filas en lugar de 70 276? Bronce conserva cada evento entrante. Plata mantiene la fila actual por clave de negocio: la corrección actualiza una clave existente, las entregas duplicadas se agrupan en una sola clave actual y la observación tardía introduce una nueva clave.
+
+El nivel Oro se mantiene en 2,928 filas porque tiene una fila para cada una de las 8 estaciones × 366 fechas del calendario en el año bisiesto 2024. La lectura que llega tarde modifica un agregado existente de estación/día en lugar de crear uno nuevo de estación/día.
+
+
+**Escenarios comprobados en la ejecución**
+
+| Escenario | Antes | Después | Lo que demuestra |
+|-----------|-------|---------|------------------|
+| Corrección ST-001 | 26,52 °C, revisión 1 | 29,02 °C, revisión 2 | Silver actualiza el registro actual cuando llega una revisión más reciente |
+| Entregas duplicadas ST-002 | Registro de referencia más dos entregas adicionales en Bronze | Una fila actual en Silver para esa clave | Bronze conserva el historial de entregas; Silver resuelve los duplicados |
+| ST-003: observación tardía | 24 observaciones por estación/día | 25 observaciones | Un evento tardío se incorpora al agregado diario histórico correcto |
+| Viaje en el tiempo de Silver | Valor corregido actual | Una instantánea anterior devuelve 26,52 °C | Se puede consultar un estado anterior de la tabla que ya se haya confirmado |
+
+✅ Estos resultados validan los escenarios demostrados. No constituyen una afirmación de que el proyecto esté implementado como un servicio de producción ni conectado a un proveedor de información meteorológica en tiempo real.
+
+
+
