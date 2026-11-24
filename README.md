@@ -162,7 +162,8 @@ weather_ledger/
 ├── jars/                                  # Dependencias de Spark (ej. runtime de Iceberg)
 ├── docker-compose.yml                     # Configuración del clúster Spark (Master/Worker)
 └── README.md                              # ¡Estás aquí!
-    
+
+![image](https://github.com/user-attachments/assets/21357be4-2117-4901-acdf-fe99ae255da9)
 ___________________________________________________________________________________________________________________________________________________________________________________________________________________
 ## 🚀 Cómo Ejecutarlo Localmente
 
@@ -279,13 +280,13 @@ Para hacer consultas y verificaciones.
 
 Powershell:
 
-/opt/spark/bin/pyspark \
-  --master spark://spark-master:7077 \
-  --jars /opt/iceberg-jars/iceberg-spark-runtime-3.5_2.12-1.9.2.jar \
-  --conf spark.sql.extensions=org.apache.iceberg.spark.extensions.IcebergSparkSessionExtensions \
-  --conf spark.sql.catalog.local=org.apache.iceberg.spark.SparkCatalog \
-  --conf spark.sql.catalog.local.type=hadoop \
-  --conf spark.sql.catalog.local.warehouse=/opt/iceberg/warehouse/weatherledger_project
+            /opt/spark/bin/pyspark \
+              --master spark://spark-master:7077 \
+              --jars /opt/iceberg-jars/iceberg-spark-runtime-3.5_2.12-1.9.2.jar \
+              --conf spark.sql.extensions=org.apache.iceberg.spark.extensions.IcebergSparkSessionExtensions \
+              --conf spark.sql.catalog.local=org.apache.iceberg.spark.SparkCatalog \
+              --conf spark.sql.catalog.local.type=hadoop \
+              --conf spark.sql.catalog.local.warehouse=/opt/iceberg/warehouse/weatherledger_project
 
 ___________________________________________________________________________________________________________________________________________________________________________________________________________________
 
@@ -297,14 +298,14 @@ Se verificaron los siguientes resultados en la ejecución local completada utili
 
 | Punto de control | Filas esperadas / observadas |
 |------------------|------------------------------|
-| Eventos de referencia (Bronce) | 70 272 |
-| Observaciones actuales (Plata) después de la referencia | 70 272 |
-| Resumen diario (Oro) después de la referencia | 2 928 |
-| Bronce después del lote de cambios de cuatro eventos | 70 276 |
-| Plata después de aplicar el lote de cambios | 70 273 |
-| Oro después de la actualización | 2 928 |
+| Eventos de referencia (Bronce) | 70,272 |
+| Observaciones actuales (Plata) después de la referencia | 70,272 |
+| Resumen diario (Oro) después de la referencia | 2,928 |
+| Bronce después del lote de cambios de cuatro eventos | 70,276 |
+| Plata después de aplicar el lote de cambios | 70,273 |
+| Oro después de la actualización | 2,928 |
 
-¿Por qué Plata termina con 70 273 filas en lugar de 70 276? Bronce conserva cada evento entrante. Plata mantiene la fila actual por clave de negocio: la corrección actualiza una clave existente, las entregas duplicadas se agrupan en una sola clave actual y la observación tardía introduce una nueva clave.
+¿Por qué Plata termina con 70,273 filas en lugar de 70,276? Bronce conserva cada evento entrante. Plata mantiene la fila actual por clave de negocio: la corrección actualiza una clave existente, las entregas duplicadas se agrupan en una sola clave actual y la observación tardía introduce una nueva clave.
 
 El nivel Oro se mantiene en 2,928 filas porque tiene una fila para cada una de las 8 estaciones × 366 fechas del calendario en el año bisiesto 2024. La lectura que llega tarde modifica un agregado existente de estación/día en lugar de crear uno nuevo de estación/día.
 
@@ -313,10 +314,10 @@ El nivel Oro se mantiene en 2,928 filas porque tiene una fila para cada una de l
 
 | Escenario | Antes | Después | Lo que demuestra |
 |-----------|-------|---------|------------------|
-| Corrección ST-001 | 26,52 °C, revisión 1 | 29,02 °C, revisión 2 | Silver actualiza el registro actual cuando llega una revisión más reciente |
+| Corrección ST-001 | 26.52 °C, revisión 1 | 29.02 °C, revisión 2 | Silver actualiza el registro actual cuando llega una revisión más reciente |
 | Entregas duplicadas ST-002 | Registro de referencia más dos entregas adicionales en Bronze | Una fila actual en Silver para esa clave | Bronze conserva el historial de entregas; Silver resuelve los duplicados |
 | ST-003: observación tardía | 24 observaciones por estación/día | 25 observaciones | Un evento tardío se incorpora al agregado diario histórico correcto |
-| Viaje en el tiempo de Silver | Valor corregido actual | Una instantánea anterior devuelve 26,52 °C | Se puede consultar un estado anterior de la tabla que ya se haya confirmado |
+| Viaje en el tiempo de Silver | Valor corregido actual | Una instantánea anterior devuelve 26.52 °C | Se puede consultar un estado anterior de la tabla que ya se haya confirmado |
 
 ✅ Estos resultados validan los escenarios demostrados. No constituyen una afirmación de que el proyecto esté implementado como un servicio de producción ni conectado a un proveedor de información meteorológica en tiempo real.
 
