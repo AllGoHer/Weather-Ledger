@@ -148,21 +148,6 @@ ________________________________________________________________________________
 ___________________________________________________________________________________________________________________________________________________________________________________________________________________
 ## 📂 Estructura del Proyecto
 
-weather_ledger/
-├── apps/
-|   └── weatherledger_project/
-│       ├── generate_demo_data.py          # Creates the baseline and change CSV files
-|       ├── bronze_ingest.py               # Appends incoming events to Bronze
-|       ├── silver_upsert.py               # Validates, deduplicates, and MERGEs into Silver
-|       ├── gold_analytics.py              # Builds daily analytics and exports the CSV
-|       └── sql/
-|           └── inspection_queries.sql     # Validation, history, time travel, and Gold queries
-├── data/                                  # Volcados de datos crudos locales (si aplica)
-├── iceberg-warehouse/                     # Volumen montado para el almacenamiento de tablas Iceberg
-├── jars/                                  # Dependencias de Spark (ej. runtime de Iceberg)
-├── docker-compose.yml                     # Configuración del clúster Spark (Master/Worker)
-└── README.md                              # ¡Estás aquí!
-
 ![image](https://github.com/user-attachments/assets/21357be4-2117-4901-acdf-fe99ae255da9)
 ___________________________________________________________________________________________________________________________________________________________________________________________________________________
 ## 🚀 Cómo Ejecutarlo Localmente
@@ -344,6 +329,29 @@ Ruta de exportación en el contenedor:
 
 * **Filtros:** rango de fechas y estación.
   
-Etiqueta el tablero como «datos sintéticos».
+Etiqueta el tablero como **datos sintéticos**.
+
+___________________________________________________________________________________________________________________________________________________________________________________________________________________
+
+### 🔍 Qué explorar en las consultas SQL
+
+El archivo de inspección SQL incluido te ayuda a verificar el proceso, en lugar de limitarte a confiar en los registros de la aplicación. Úsalo para:
+
+* Contar los eventos Bronce por lote.
+  
+* Inspeccionar las entregas duplicadas entrantes.
+
+* Confirmar la unicidad de las claves de negocio Plata.
+
+* Comparar los valores anteriores y actuales de la observación corregida.
+
+* Verificar la observación de la estación que llegó tarde.
+
+* Inspeccionar los metadatos de .snapshots y guardar un ID de instantánea real.
+
+* Consultar la instantánea **Silver** anterior con la función **time travel**.
+
+* Comparar los resúmenes diarios **Gold** afectados.
 
 
+📋 **Nota:** Los ID de instantánea se generan cuando Iceberg confirma los cambios. No des por sentado que un ID de instantánea que aparece en otra ejecución existirá en tus propias tablas.
