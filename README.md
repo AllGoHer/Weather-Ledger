@@ -321,5 +321,29 @@ El nivel Oro se mantiene en 2,928 filas porque tiene una fila para cada una de l
 
 ✅ Estos resultados validan los escenarios demostrados. No constituyen una afirmación de que el proyecto esté implementado como un servicio de producción ni conectado a un proveedor de información meteorológica en tiempo real.
 
+___________________________________________________________________________________________________________________________________________________________________________________________________________________
+### 📈 Salida de Power BI
+
+La aplicación Gold exporta un archivo CSV para un informe de Power BI. La exportación corresponde a una capa de consumo; la tabla analítica de Gold en sí misma sigue siendo una tabla **Iceberg**.
+
+Ruta de exportación en el contenedor:
+
+            /opt/spark-data/weatherledger_project/powerbi/daily_weather_summary.csv
+
+**Ideas para el tablero:**
+
+* **Tarjetas de KPI:** temperatura promedio, precipitación total, velocidad máxima del viento y número de estaciones.
+
+* **Gráfico de líneas:** temperatura promedio diaria a lo largo del tiempo.
+  
+* **Gráfico de columnas:** precipitación total por estación.
+  
+* **Gráfico de tendencias:** temperatura a lo largo del tiempo con una leyenda de estaciones o un filtro.
+  
+* **Matriz:** estación, fecha, número de observaciones, temperatura, humedad, precipitación y velocidad máxima del viento
+
+* **Filtros:** rango de fechas y estación.
+  
+Etiqueta el tablero como «datos sintéticos».
 
 
