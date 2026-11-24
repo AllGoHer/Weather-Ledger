@@ -28,14 +28,6 @@ El canal de datos fluye de **Bronce** → **Plata** → **Oro**:
 
 📋 <mark>**Nota sobre el conjunto de datos**</mark>: todas las mediciones meteorológicas son datos sintéticos generados localmente para este proyecto. No son lecturas en vivo de estaciones meteorológicas reales.
 
-___________________________________________________________________________________________________________________________________________________________________________________________________________________
-### 🧭 Navegación Rápida
-
-
-
-
-
-
 __________________________________________________________________________________________________________________________________________________________________________________________________________________
 ## 🏗️ Arquitectura
 
@@ -355,3 +347,20 @@ El archivo de inspección SQL incluido te ayuda a verificar el proceso, en lugar
 
 
 📋 **Nota:** Los ID de instantánea se generan cuando Iceberg confirma los cambios. No des por sentado que un ID de instantánea que aparece en otra ejecución existirá en tus propias tablas.
+
+___________________________________________________________________________________________________________________________________________________________________________________________________________________
+
+## ⚠️ Notas sobre el alcance y el diseño
+
+* Los registros meteorológicos son sintéticos y se generan localmente.
+
+* La configuración utiliza un catálogo de Iceberg local respaldado por Hadoop; no se trata de una implementación en la nube.
+
+* Bronze, Silver y Gold son todas tablas de Iceberg en esta implementación.
+
+* La deduplicación y las reglas de claves de negocio forman parte de la lógica de la aplicación; Iceberg no impone una restricción de clave primaria.
+
+* La ruta de actualización que se muestra utiliza trabajos por lotes, no Kafka ni ingestión en tiempo real.
+
+* Este es un proyecto específico de la cartera, no una afirmación de orquestación de nivel de producción ni una plataforma de producción totalmente administrada.
+
