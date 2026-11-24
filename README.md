@@ -380,237 +380,775 @@ Powershell:
 
 ![image](https://github.com/user-attachments/assets/63d8ccf6-eae2-43db-9410-c475755c1eb7)
 
-2. Descarga docker-compose.yml a tu carpeta Weather_Ledger del siguiente repositorio de github.
-Repositorio GitHub: 
+2. Descarga [docker-compose.yml](https://github.com/AllGoHer/Weather-Ledger/blob/main/docker-compose.yml) a tu carpeta Weather_Ledger.
 
 3. levantamos la infraestructura.
+ 
  PowerShell:
-docker compose up -d
 
+            docker compose up -d
+
+
+![image](https://github.com/user-attachments/assets/c62b7e98-f03e-4697-a26b-4ebc8c8abd01)
+
+Verificamos en docker desktop
+
+![image](https://github.com/user-attachments/assets/f26e7b4f-ce42-49a4-96fd-2a7e17d8fe65)
+
+4.	Ahora, en powershell, ejecutamos el siguiente comando de descarga del archivo.
+
+Powershell:
+
+            Invoke-WebRequest ` -Uri "https://repo1.maven.org/maven2/org/apache/iceberg/iceberg-spark-runtime-3.5_2.12/1.9.2/iceberg-spark-runtime-3.5_2.12-1.9.2.jar" `
+                           -OutFile ".\jars\iceberg-spark-runtime-3.5_2.12-1.9.2.jar"
+            
+
+![image](https://github.com/user-attachments/assets/e2d2db09-de7a-42fd-9d01-7aebac03e984)
+
+5.	 descargamos también generador de datos del repositorio, pero lo descargamos en la subcarpeta de apps, y luego ejecutamos.
+
+PowerShell:
+
+            cd apps
+            python generate_demo_data.py
+
+seguidamente, te preguntara que año quieres ejecutar, en este caso, 2024.
+
+
+![image](https://github.com/user-attachments/assets/b7cd1069-018d-40d8-9e87-b68cc7c53fbc)
+
+Para ordenar mejor los datos, cortamos los datos o carpeta generada llamada weatherledger_project y lo pegamos en la carpeta data.
+
+![image](https://github.com/user-attachments/assets/cd8c0d16-94bf-4e1e-8185-b4bee8e3729e)
+
+
+6. Creamos la capa bronce en VSCode.
+
+A la capa bronce lo nombramos bronze_ingest.py
+
+Código:
+
+            import csv
+            import os
+            from pyspark.sql import SparkSession
+            from pyspark.sql.functions import to_timestamp
+            
+            NAMESPACE = "local.weather_demo"
+            TABLE = f"{NAMESPACE}.bronze_events"
+            
+            DATA_DIR = "/opt/spark-data/weatherledger_project/landing"
+            BASELINE = os.path.join(DATA_DIR, "weather_baseline.csv")
+            CHANGES = os.path.join(DATA_DIR, "weather_changes.csv")
+            
+            def get_source_batch_id(path):
+            
+                if not os.path.isfile(path):
+                    raise FileNotFoundError(
+                        f"Input file not found: {path}. Run generate_demo_data.py first."
+                    )
+            
+                with open(path, "r", newline="", encoding="utf-8") as file:
+                    reader = csv.DictReader(file)
+            
+                    first_row = next(reader, None)
+            
+                    if first_row is None:
+                        raise ValueError(f"Input file has no data rows: {path}")
+            
+                    batch_id = (first_row.get("source_batch_id") or "").strip()
+            
+                    if not batch_id:
+                        raise ValueError(
+                            f"Missing source_batch_id in input file: {path}"
+                        )
+            
+                return batch_id
+            
+            # Discover batch IDs from the actual input files.
+            
+            baseline_batch_id = get_source_batch_id(BASELINE)
+            changes_batch_id = get_source_batch_id(CHANGES)
+            
+            spark = (
+                SparkSession.builder
+                .appName("WeatherLedger-Bronze")
+                .getOrCreate()
+            )
+            spark.sparkContext.setLogLevel("ERROR")
+            
+            spark.sql(f"CREATE NAMESPACE IF NOT EXISTS {NAMESPACE}")
+            
+            # Find the source batches already represented in Bronze.
+            loaded = set()
+            
+            if spark.catalog.tableExists(TABLE):
+                loaded = {
+                    row.source_batch_id
+                    for row in (
+                        spark.table(TABLE)
+                        .select("source_batch_id")
+                        .distinct()
+                        .collect()
+                    )
+                }
+            
+            # Load the baseline first, then the changes batch.
+            if baseline_batch_id not in loaded:
+                path = BASELINE
+            elif changes_batch_id not in loaded:
+                path = CHANGES
+            else:
+                print(
+                    "Both input batches are already in Bronze; no changes made."
+                )
+                spark.stop()
+                raise SystemExit(0)
+            
+            # Read the selected CSV into a Spark DataFrame.
+            events = (
+                spark.read
+                .option("header", True)
+                .option("inferSchema", True)
+                .csv(path)
+                .withColumn("observed_at", to_timestamp("observed_at"))
+                .withColumn("ingested_at", to_timestamp("ingested_at"))
+            )
+            
+            batch_id = events.select("source_batch_id").first()[0]
+            
+            # Create the table on the first load; append subsequent batches.
+            if not spark.catalog.tableExists(TABLE):
+                events.writeTo(TABLE).using("iceberg").create()
+            else:
+                events.writeTo(TABLE).append()
+            
+            print(f"Loaded {batch_id}: {events.count():,} events")
+            print(f"Bronze total: {spark.table(TABLE).count():,}")
+            
+            spark.stop()
 
-![image]()
 
-![image]()
+![image](https://github.com/user-attachments/assets/a941d614-7897-4d9b-a08f-4442467e33f9)
 
-![image]()
+7.	 ejecutamos en la terminal la capa bronce.
+
+Código:
+
+        docker exec iceberg-spark-master /opt/spark/bin/spark-submit `
+          --master spark://spark-master:7077 `
+          --jars /opt/iceberg-jars/iceberg-spark-runtime-3.5_2.12-1.9.2.jar `
+          --conf spark.sql.extensions=org.apache.iceberg.spark.extensions.IcebergSparkSessionExtensions `
+          --conf spark.sql.catalog.local=org.apache.iceberg.spark.SparkCatalog `
+          --conf spark.sql.catalog.local.type=hadoop `
+          --conf spark.sql.catalog.local.warehouse=/opt/iceberg/warehouse/weatherledger_project `
+          --conf spark.sql.defaultCatalog=local `
+          --conf spark.sql.session.timeZone=UTC `
+          /opt/spark-apps/weatherledger_project/bronze_ingest.py
+
+
+
+![image](https://github.com/user-attachments/assets/8a9b3a38-3a95-4c50-b8fb-b1de818fc1c0)
+
+![image](https://github.com/user-attachments/assets/43c36c4d-5eca-4e5c-9c2d-fa1a9c938033)
+
+8.	Inspección de datos.
+
+Primero abrimos el trabajador en powershell.
+
+Powershell:
+
+            docker exec -it iceberg-spark-worker bash
+
+
+Ahora, abrimos una sesión Spark
 
-![image]()
+Código:
 
-![image]()
+        /opt/spark/bin/pyspark \
+          --master spark://spark-master:7077 \
+          --jars /opt/iceberg-jars/iceberg-spark-runtime-3.5_2.12-1.9.2.jar \
+          --conf spark.sql.extensions=org.apache.iceberg.spark.extensions.IcebergSparkSessionExtensions \
+          --conf spark.sql.catalog.local=org.apache.iceberg.spark.SparkCatalog \
+          --conf spark.sql.catalog.local.type=hadoop \
+          --conf spark.sql.catalog.local.warehouse=/opt/iceberg/warehouse/weatherledger_project
 
-![image]()
 
-![image]()
 
-![image]()
+![image](https://github.com/user-attachments/assets/7c88f403-04bc-43ee-a75e-8632908e3760)
 
-![image]()
+Luego, verificamos los eventos de la capa bronce.
 
-![image]()
+Código:
 
-![image]()
+        spark.sql("""
+        select * from local.weather_demo.bronze_events
+        """).show()
 
-![image]()
 
-![image]()
+![image](https://github.com/user-attachments/assets/b2bea26c-8f23-4eb1-9447-a6cf14a6ee1c)
 
-![image]()
+Esto muestra las primeras 20 filas de las 70,272 filas ingestadas.
 
-![image]()
+Por último, debemos cerrar la sesión.
 
-![image]()
+Código:
 
-![image]()
+        exit();
 
-![image]() 
 
-![image]()
+![image](https://github.com/user-attachments/assets/f918fd3a-b94d-4d6c-9fa6-fd1dfb82ded7)
 
-![image]()
+___________________________________________________________________________________________________________________________________________________________________________________________________________________
 
-![image]()
+### SILVER LAYER
 
-![image]()
+Ahora, creamos el archivo silver llamado silver_upsert.py
 
-![image]()
+Código:
 
-![image]()
+        from pyspark.sql import SparkSession, Window
+        from pyspark.sql.functions import col, row_number
+        
+        BRONZE = "local.weather_demo.bronze_events"
+        SILVER = "local.weather_demo.silver_observations"
+        spark = SparkSession.builder.appName("WeatherLedger-Silver").getOrCreate()
+        spark.sparkContext.setLogLevel("ERROR")
+        
+        latest = Window.partitionBy("station_id", "observed_at").orderBy(
+            col("revision").desc(), col("ingested_at").desc(), col("event_id").desc())
+        updates = (spark.table(BRONZE)
+            .filter(col("temperature_c").between(-80, 60) &
+                    col("humidity_pct").between(0, 100) &
+                    (col("precipitation_mm") >= 0) & col("wind_speed_kmh").between(0, 400))
+            .withColumn("rn", row_number().over(latest)).filter(col("rn") == 1).drop("rn"))
+        updates.createOrReplaceTempView("updates")
+        
+        if not spark.catalog.tableExists(SILVER):
+            updates.writeTo(SILVER).using("iceberg").create()
+        else:
+            spark.sql(f"""
+                MERGE INTO {SILVER} t USING updates s
+                ON t.station_id = s.station_id AND t.observed_at = s.observed_at
+                WHEN MATCHED AND (s.revision > t.revision OR
+                     (s.revision = t.revision AND s.ingested_at > t.ingested_at))
+                THEN UPDATE SET t.event_id = s.event_id, t.ingested_at = s.ingested_at,
+                     t.temperature_c = s.temperature_c, t.humidity_pct = s.humidity_pct,
+                     t.precipitation_mm = s.precipitation_mm, t.wind_speed_kmh = s.wind_speed_kmh,
+                     t.revision = s.revision, t.source_batch_id = s.source_batch_id
+                WHEN NOT MATCHED THEN INSERT *
+            """)
+        
+        print(f"Silver current observations: {spark.table(SILVER).count():,}")
+        spark.stop()
+
+
+luego, ejecutamos la capa silver en la raíz del proyecto.
+
+Código:
+
+        docker exec iceberg-spark-master /opt/spark/bin/spark-submit `
+          --master spark://spark-master:7077 `
+          --jars /opt/iceberg-jars/iceberg-spark-runtime-3.5_2.12-1.9.2.jar `
+          --conf spark.sql.extensions=org.apache.iceberg.spark.extensions.IcebergSparkSessionExtensions `
+          --conf spark.sql.catalog.local=org.apache.iceberg.spark.SparkCatalog `
+          --conf spark.sql.catalog.local.type=hadoop `
+          --conf spark.sql.catalog.local.warehouse=/opt/iceberg/warehouse/weatherledger_project `
+          --conf spark.sql.defaultCatalog=local `
+          --conf spark.sql.session.timeZone=UTC `
+          /opt/spark-apps/weatherledger_project/silver_upsert.py
+
+
+![image](https://github.com/user-attachments/assets/4c34a400-43c9-4049-91d5-70cf0c7402b8)
+
+
+
+![image](https://github.com/user-attachments/assets/f6f2d7ec-5625-4541-9093-714ace1d0262)
+
+Nuevamente, abrimos el trabajador de spark.
+
+Código:
+
+        docker exec -it iceberg-spark-worker bash
+
+luego, abrimos sesión en pyspark.
+
+Código:
+
+        /opt/spark/bin/pyspark \
+          --master spark://spark-master:7077 \
+          --jars /opt/iceberg-jars/iceberg-spark-runtime-3.5_2.12-1.9.2.jar \
+          --conf spark.sql.extensions=org.apache.iceberg.spark.extensions.IcebergSparkSessionExtensions \
+          --conf spark.sql.catalog.local=org.apache.iceberg.spark.SparkCatalog \
+          --conf spark.sql.catalog.local.type=hadoop \
+          --conf spark.sql.catalog.local.warehouse=/opt/iceberg/warehouse/weatherledger_project
+        
+
+![image](https://github.com/user-attachments/assets/3c40c18c-3827-439a-aee8-d1b2ad275f06)
+
+Verificamos la creación de la capa silver.
+
+Código:
 
-![image]()
+        spark.sql("""
+        SELECT *
+        FROM local.weather_demo.silver_observations
+        """).show()
 
-![image]()
 
-![image]()
 
-![image]()
+![image](https://github.com/user-attachments/assets/6a091589-6f86-421a-b938-8436066cf60d)
 
-![image]()
+___________________________________________________________________________________________________________________________________________________________________________________________________________________
+### GOLD LAYER
 
-![image]()
+Creamos la capa de oro.
 
-![image]()
+Código:
 
-![image]()
+            import csv
+            import os
+            from pyspark.sql import SparkSession
+            from pyspark.sql.functions import avg, count, max, round, sum, to_date
+            
+            SILVER = "local.weather_demo.silver_observations"
+            GOLD = "local.weather_demo.gold_daily_summary"
+            OUTPUT = "/opt/spark-data/weatherledger_project/powerbi/daily_weather_summary.csv"
+            spark = SparkSession.builder.appName("WeatherLedger-Gold").getOrCreate()
+            spark.sparkContext.setLogLevel("ERROR")
+            
+            daily = (spark.table(SILVER).withColumn("observation_date", to_date("observed_at"))
+                .groupBy("station_id", "observation_date")
+                .agg(count("event_id").alias("observation_count"),
+                     round(avg("temperature_c"), 2).alias("avg_temperature_c"),
+                     round(avg("humidity_pct"), 2).alias("avg_humidity_pct"),
+                     round(sum("precipitation_mm"), 2).alias("total_precipitation_mm"),
+                     round(max("wind_speed_kmh"), 2).alias("max_wind_speed_kmh")))
+            daily.createOrReplaceTempView("daily_updates")
+            
+            if not spark.catalog.tableExists(GOLD):
+                daily.writeTo(GOLD).using("iceberg").create()
+            else:
+                spark.sql(f"""
+                    MERGE INTO {GOLD} t USING daily_updates s
+                    ON t.station_id = s.station_id AND t.observation_date = s.observation_date
+                    WHEN MATCHED AND (t.observation_count <> s.observation_count OR
+                         t.avg_temperature_c <> s.avg_temperature_c OR
+                         t.avg_humidity_pct <> s.avg_humidity_pct OR
+                         t.total_precipitation_mm <> s.total_precipitation_mm OR
+                         t.max_wind_speed_kmh <> s.max_wind_speed_kmh)
+                    THEN UPDATE SET t.observation_count = s.observation_count,
+                         t.avg_temperature_c = s.avg_temperature_c,
+                         t.avg_humidity_pct = s.avg_humidity_pct,
+                         t.total_precipitation_mm = s.total_precipitation_mm,
+                         t.max_wind_speed_kmh = s.max_wind_speed_kmh
+                    WHEN NOT MATCHED THEN INSERT *
+                """)
+            
+            os.makedirs(os.path.dirname(OUTPUT), exist_ok=True)
+            rows = spark.table(GOLD).orderBy("observation_date", "station_id").collect()
+            with open(OUTPUT, "w", newline="", encoding="utf-8") as file:
+                writer = csv.DictWriter(file, fieldnames=list(rows[0].asDict().keys()))
+                writer.writeheader()
+                writer.writerows(row.asDict() for row in rows)
+            
+            print(f"Gold rows: {len(rows):,}; Power BI file: {OUTPUT}")
+            spark.stop()
 
-![image]()
 
-![image]()
+ahora, ejecutamos la capa de oro.
 
-![image]()
+Código:
 
-![image]()
+        docker exec iceberg-spark-master /opt/spark/bin/spark-submit `
+          --master spark://spark-master:7077 `
+          --jars /opt/iceberg-jars/iceberg-spark-runtime-3.5_2.12-1.9.2.jar `
+          --conf spark.sql.extensions=org.apache.iceberg.spark.extensions.IcebergSparkSessionExtensions `
+          --conf spark.sql.catalog.local=org.apache.iceberg.spark.SparkCatalog `
+          --conf spark.sql.catalog.local.type=hadoop `
+          --conf spark.sql.catalog.local.warehouse=/opt/iceberg/warehouse/weatherledger_project `
+          --conf spark.sql.defaultCatalog=local `
+          --conf spark.sql.session.timeZone=UTC `
+          /opt/spark-apps/weatherledger_project/gold_analytics.py
 
-![image]()
+![image](https://github.com/user-attachments/assets/b0707276-1dd5-4662-9d36-40e3d0d4c5f4)
 
-![image]()
 
-![image]()
+![image](https://github.com/user-attachments/assets/5a9bf5f8-e3e7-4ca1-960f-7aef90d09760)
 
-![image]()
+Verificamos que se haya creado el archivo para Power BI
 
-![image]()
+![image](https://github.com/user-attachments/assets/873871c8-0602-4c19-b351-ee59015fcdce)
 
-![image]()
+![image](https://github.com/user-attachments/assets/77e192bc-8001-42d9-ac61-1ac458b7b09a)
 
-![image]()
+Nuevamente, abrimos el trabajador de spark.
 
-![image]()
+Código:
 
-![image]()
+        docker exec -it iceberg-spark-worker bash
 
-![image]()
+luego, abrimos sesión en pyspark.
 
-![image]()
+Código:
 
-![image]()
+        /opt/spark/bin/pyspark \
+          --master spark://spark-master:7077 \
+          --jars /opt/iceberg-jars/iceberg-spark-runtime-3.5_2.12-1.9.2.jar \
+          --conf spark.sql.extensions=org.apache.iceberg.spark.extensions.IcebergSparkSessionExtensions \
+          --conf spark.sql.catalog.local=org.apache.iceberg.spark.SparkCatalog \
+          --conf spark.sql.catalog.local.type=hadoop \
+          --conf spark.sql.catalog.local.warehouse=/opt/iceberg/warehouse/weatherledger_project
 
-![image]()
 
-![image]()
+![image](https://github.com/user-attachments/assets/659721f3-5584-488c-a860-2938f15e12f9)
 
-![image]()
 
-![image]()
+![image](https://github.com/user-attachments/assets/bdcf2e71-aee4-4482-90c2-64c56a47795f)
 
-![image]()
+Y luego salimos.
 
-![image]()
+Código:
+ 
+         exit();
 
-![image]()
 
-![image]()
+ahora, hacemos una verificación de los eventos de la capa bronce.
 
-![image]()
+Código:
 
-![image]()
+        spark.sql("""
+             SELECT
+                 source_batch_id,
+                 COUNT(*) AS received_events
+             FROM local.weather_demo.bronze_events
+             GROUP BY source_batch_id
+         """).show(truncate=False)
 
-![image]()
 
-![image]()
+![image](https://github.com/user-attachments/assets/f0853156-b730-4d64-acb5-3f6375c75997)
 
-![image]()
 
-![image]()
+Código:
 
-![image]()
+        spark.sql("""
+            SELECT
+               station_id,
+               observed_at,
+               temperature_c,
+               revision,
+               event_id
+            FROM local.weather_demo.bronze_events
+            WHERE station_id = 'ST-001'
+            AND observed_at = TIMESTAMP '2024-06-15 12:00:00'
+         """).show(truncate=False)
 
-![image]()
+![image](https://github.com/user-attachments/assets/23e79787-d364-4f91-a99b-a9eeaa0231b0)
 
-![image]()
+Código:
 
-![image]()
+        spark.sql("""
+            SELECT
+                committed_at,
+                snapshot_id,
+                operation
+            FROM local.weather_demo.silver_observations.snapshots
+            ORDER BY committed_at DESC
+         """).show(truncate=False)
 
-![image]()
 
-![image]()
+![image](https://github.com/user-attachments/assets/92d53596-cba4-4a67-81a7-d005f97aaeca)
 
-![image]()
+Código:
 
-![image]()
+        spark.sql("""
+            SELECT
+                COUNT(*) AS duplicate_current_keys
+            FROM (
+                SELECT
+                    station_id,
+                    observed_at
+                FROM local.weather_demo.silver_observations
+                GROUP BY station_id, observed_at
+                HAVING COUNT(*) > 1
+             ) duplicates
+         """).show(truncate=False)
 
-![image]()
 
-![image]()
+![image](https://github.com/user-attachments/assets/4e52e44d-6e94-49d1-bc29-da43b9609cc6)
 
-![image]()
+Ahora, vamos a ejecutar nuevamente la capa de bronce para ver la actualización de eventos y así confirmara que todo está andando bien.
 
-![image]()
+Código:
 
-![image]()
+        docker exec iceberg-spark-master /opt/spark/bin/spark-submit `
+          --master spark://spark-master:7077 `
+          --jars /opt/iceberg-jars/iceberg-spark-runtime-3.5_2.12-1.9.2.jar `
+          --conf spark.sql.extensions=org.apache.iceberg.spark.extensions.IcebergSparkSessionExtensions `
+          --conf spark.sql.catalog.local=org.apache.iceberg.spark.SparkCatalog `
+          --conf spark.sql.catalog.local.type=hadoop `
+          --conf spark.sql.catalog.local.warehouse=/opt/iceberg/warehouse/weatherledger_project `
+          --conf spark.sql.defaultCatalog=local `
+          --conf spark.sql.session.timeZone=UTC `
+          /opt/spark-apps/weatherledger_project/bronze_ingest.py
 
-![image]()
 
-![image]()
+![image](https://github.com/user-attachments/assets/3abe5458-b245-4f58-8555-1988aea7cb34)
 
-![image]()
+Ahora, podemos ver que hay 70,276 eventos, ósea 4 mas que la vez anterior.
 
-![image]()
+Con eso podemos garantizar que código anda bien.
 
-![image]()
+Luego, hacemos lo mismo con silver.
 
-![image]()
+Código:
 
-![image]()
+        docker exec iceberg-spark-master /opt/spark/bin/spark-submit `
+          --master spark://spark-master:7077 `
+          --jars /opt/iceberg-jars/iceberg-spark-runtime-3.5_2.12-1.9.2.jar `
+          --conf spark.sql.extensions=org.apache.iceberg.spark.extensions.IcebergSparkSessionExtensions `
+          --conf spark.sql.catalog.local=org.apache.iceberg.spark.SparkCatalog `
+          --conf spark.sql.catalog.local.type=hadoop `
+          --conf spark.sql.catalog.local.warehouse=/opt/iceberg/warehouse/weatherledger_project `
+          --conf spark.sql.defaultCatalog=local `
+          --conf spark.sql.session.timeZone=UTC `
+          /opt/spark-apps/weatherledger_project/silver_upsert.py
 
-![image]()
 
-![image]()
+![image](https://github.com/user-attachments/assets/62c9087c-74c8-4aaf-b717-05854a6470f7)
 
-![image]()
+Esto demuestra que se agregó un evento.
 
-![image]()
+Y así mismo, también ejecutamos la capa gold.
 
-![image]()
+Código:
 
-![image]()
+        docker exec iceberg-spark-master /opt/spark/bin/spark-submit `
+          --master spark://spark-master:7077 `
+          --jars /opt/iceberg-jars/iceberg-spark-runtime-3.5_2.12-1.9.2.jar `
+          --conf spark.sql.extensions=org.apache.iceberg.spark.extensions.IcebergSparkSessionExtensions `
+          --conf spark.sql.catalog.local=org.apache.iceberg.spark.SparkCatalog `
+          --conf spark.sql.catalog.local.type=hadoop `
+          --conf spark.sql.catalog.local.warehouse=/opt/iceberg/warehouse/weatherledger_project `
+          --conf spark.sql.defaultCatalog=local `
+          --conf spark.sql.session.timeZone=UTC `
+          /opt/spark-apps/weatherledger_project/gold_analytics.py
 
-![image]()
 
-![image]()
+![image](https://github.com/user-attachments/assets/86968a51-273f-472c-857a-1963c667b486)
 
-![image]()
+Bueno, en la capa gold no varía porque los registros se hacen por días. 
 
-![image]()
 
-![image]()
+Ahora, volvemos abrir la sesión de spark.
 
-![image]()
+Código:
 
-![image]()
+        /opt/spark/bin/pyspark \
+          --master spark://spark-master:7077 \
+          --jars /opt/iceberg-jars/iceberg-spark-runtime-3.5_2.12-1.9.2.jar \
+          --conf spark.sql.extensions=org.apache.iceberg.spark.extensions.IcebergSparkSessionExtensions \
+          --conf spark.sql.catalog.local=org.apache.iceberg.spark.SparkCatalog \
+          --conf spark.sql.catalog.local.type=hadoop \
+          --conf spark.sql.catalog.local.warehouse=/opt/iceberg/warehouse/weatherledger_project
 
-![image]()
 
-![image]()
+Código:
 
-![image]()
+        spark.sql("""
+            SELECT
+                source_batch_id,
+                COUNT(*) AS received_events
+            FROM local.weather_demo.bronze_events
+            GROUP BY source_batch_id
+         """).show(truncate=False)
 
-![image]()
+![image](https://github.com/user-attachments/assets/d1a9bbbe-92b8-44b9-8c37-5c27371917be)
 
-![image]()
+Código:
 
-![image]()
+        spark.sql("""
+            SELECT
+                station_id,
+                observed_at,
+                temperature_c,
+                revision,
+                event_id
+            FROM local.weather_demo.bronze_events
+            WHERE station_id = 'ST-001'
+            AND observed_at = TIMESTAMP '2024-06-15 12:00:00'
+         """).show(truncate=False)
 
-![image]()
 
-![image]()
+![image](https://github.com/user-attachments/assets/a94c5dd1-e915-49f0-9920-10724f24f0f1)
 
-![image]()
 
-![image]()
+Ahora, al consultar si hay duplicado en la capa plata. 
 
-![image]()
+Código:
 
-![image]()
+        spark.sql("""
+             SELECT
+                COUNT(*) AS duplicate_current_keys
+             FROM (
+                 SELECT
+                     station_id,
+                     observed_at
+                 FROM local.weather_demo.silver_observations
+                 GROUP BY station_id, observed_at
+                 HAVING COUNT(*) > 1
+              ) duplicates
+         """).show(truncate=False)
 
-![image]()
 
-![image]()
+![image](https://github.com/user-attachments/assets/28379898-8247-4c42-9e39-72bca0309793)
 
-![image]()
+podemos ver que no hay duplicados.
 
-![image]()
+Código:
 
-![image]()
+        spark.sql("""
+            SELECT
+                event_id,
+                station_id,
+                observed_at,
+                temperature_c,
+                revision,
+                ingested_at
+            FROM local.weather_demo.bronze_events
+            WHERE source_batch_id = 'weather-changes-2024-10-01'
+            ORDER BY station_id, observed_at, ingested_at
+         """).show(truncate=False)
 
-![image]()
+
+![image](https://github.com/user-attachments/assets/a961029f-441e-43e0-8f93-a5ae2cd9798c)
+
+Código:
+
+        spark.sql("""
+            SELECT
+                station_id,
+                observed_at,
+                COUNT(*) AS delivered_copies
+            FROM local.weather_demo.bronze_events
+            WHERE station_id = 'ST-002'
+              AND observed_at = TIMESTAMP '2024-06-20 08:00:00'
+            GROUP BY station_id, observed_at
+         """).show(truncate=False)
+
+
+
+![image](https://github.com/user-attachments/assets/b5a6467a-2f75-44ab-8529-aa04d5c527b9)
+
+Ahora podemos ver 3 cambios.
+
+Código:
+
+        spark.sql("""
+            SELECT
+                station_id,
+                observed_at,
+                temperature_c,
+                revision,
+                event_id,
+                ingested_at
+            FROM local.weather_demo.silver_observations
+            WHERE (
+                station_id = 'ST-001'
+            AND observed_at = TIMESTAMP '2024-06-15 12:00:00'
+            )
+            OR (
+                station_id = 'ST-003'
+            AND observed_at = TIMESTAMP '2024-06-15 12:30:00'
+            )
+            OR(
+                station_id = 'ST-002'
+            AND observed_at = TIMESTAMP '2024-06-20 08:00:00'
+            )
+            ORDER BY station_id, observed_at
+         """).show(truncate=False)
+
+
+![image](https://github.com/user-attachments/assets/3a975da5-f004-4bf1-a54a-9f036f5b8f17)
+
+Código:
+
+        spark.sql("""
+            SELECT
+                temperature_c,
+                revision,
+                event_id
+            FROM local.weather_demo.silver_observations
+            VERSION AS OF 6353691550855534334
+            WHERE station_id = 'ST-001'
+            AND observed_at = TIMESTAMP '2024-06-15 12:00:00'
+         """).show(truncate=False)
+
+
+![image](https://github.com/user-attachments/assets/90f92f85-1c5b-4726-99fb-10283580ade9)
+
+Entre estos dos últimos cuadros o consultas podemos ver que la temperatura actual es de 29.02 grados y la temperatura anterior fue de 26.52 grados.
+
+
+* Ahora, vamos hacer inspecciones a la capa de oro.
+
+Código:
+
+        spark.sql("""
+            SELECT
+                committed_at,
+                snapshot_id,
+                operation
+            FROM local.weather_demo.gold_daily_summary.snapshots
+            ORDER BY committed_at
+         """).show(truncate=False) 
+
+
+![image](https://github.com/user-attachments/assets/b3bd1a7a-8de2-44a1-92f8-524d40648eb0)
+
+
+* Revisión de las métricas diarias de gold.
+
+Código:
+
+        spark.sql("""
+        WITH baseline_gold AS (
+            SELECT
+                station_id,
+                observation_date,
+                observation_count,
+                avg_temperature_c,
+                total_precipitation_mm
+            FROM local.weather_demo.gold_daily_summary
+            VERSION AS OF 1504273939043582168
+            WHERE observation_date = DATE '2024-06-15'
+              AND station_id IN ('ST-001', 'ST-003')
+        ),
+        current_gold AS (
+            SELECT
+                station_id,
+                observation_date,
+                observation_count,
+                avg_temperature_c,
+                total_precipitation_mm
+            FROM local.weather_demo.gold_daily_summary
+            WHERE observation_date = DATE '2024-06-15'
+              AND station_id IN ('ST-001', 'ST-003')
+        )
+        SELECT
+            c.station_id,
+            c.observation_date,
+            b.observation_count AS old_count,
+            c.observation_count AS current_count,
+            b.avg_temperature_c AS old_avg_temperature,
+            c.avg_temperature_c AS current_avg_temperature,
+            b.total_precipitation_mm AS old_precipitation,
+            c.total_precipitation_mm AS current_precipitation
+        FROM baseline_gold b
+        JOIN current_gold c
+            ON b.station_id = c.station_id
+           AND b.observation_date = c.observation_date
+        ORDER BY c.station_id
+        """).show(truncate=False)
+
+![image](https://github.com/user-attachments/assets/21bae768-258c-44ee-9130-da38262a8287)
 
