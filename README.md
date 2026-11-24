@@ -194,7 +194,7 @@ Verifica que el clúster esté funcionando visitando:
 
 1. Inicia la infraestructura utilizando la configuración de Docker/Spark proporcionada.
 
-2. Genera los archivos de entrada sintéticos con [generate_demo_data.py]().
+2. Genera los archivos de entrada sintéticos con [generate_demo_data.py](https://github.com/AllGoHer/Weather-Ledger/blob/main/apps/weatherledger_project/generate_demo_data.py).
 
 3. Carga el lote de referencia ejecutando [bronze_ingest.py]().
 
