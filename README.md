@@ -200,7 +200,7 @@ Verifica que el clúster esté funcionando visitando:
 
 4. Crea el estado actual inicial ejecutando [silver_upsert.py](https://github.com/AllGoHer/Weather-Ledger/blob/main/apps/weatherledger_project/silver_upsert.py).
 
-5. Crea el resumen diario inicial ejecutando [gold_analytics.py]().
+5. Crea el resumen diario inicial ejecutando [gold_analytics.py](https://github.com/AllGoHer/Weather-Ledger/blob/main/apps/weatherledger_project/gold_analytics.py).
 
 6. Usa [inspection_queries.sql]() para revisar la singularidad de Bronce y Plata, así como el resumen actual. Guarda el ID de la instantánea actual de Plata antes de procesar los cambios.
 
@@ -210,9 +210,9 @@ Verifica que el clúster esté funcionando visitando:
 
 9. Consulte la instantánea de Silver guardada antes del cambio utilizando el viaje en el tiempo de Iceberg.
 
-10. Actualice la tabla Gold ejecutando [gold_analytics.py]() nuevamente y compare las métricas diarias afectadas.
+10. Actualice la tabla Gold ejecutando [gold_analytics.py](https://github.com/AllGoHer/Weather-Ledger/blob/main/apps/weatherledger_project/gold_analytics.py) nuevamente y compare las métricas diarias afectadas.
 
-Utilice la referencia de comandos proporcionada para conocer las invocaciones exactas de spark-submit en PowerShell y las rutas de los archivos montados. Ejecutar [bronze_ingest.py](https://github.com/AllGoHer/Weather-Ledger/blob/main/apps/weatherledger_project/bronze_ingest.py), [silver_upsert.py](https://github.com/AllGoHer/Weather-Ledger/blob/main/apps/weatherledger_project/silver_upsert.py) y [gold_analytics.py]() fuera de orden no reproducirá los puntos de control previstos.
+Utilice la referencia de comandos proporcionada para conocer las invocaciones exactas de spark-submit en PowerShell y las rutas de los archivos montados. Ejecutar [bronze_ingest.py](https://github.com/AllGoHer/Weather-Ledger/blob/main/apps/weatherledger_project/bronze_ingest.py), [silver_upsert.py](https://github.com/AllGoHer/Weather-Ledger/blob/main/apps/weatherledger_project/silver_upsert.py) y [gold_analytics.py](https://github.com/AllGoHer/Weather-Ledger/blob/main/apps/weatherledger_project/gold_analytics.py) fuera de orden no reproducirá los puntos de control previstos.
 
 
 **5. Cargar el archivo Jar**
